@@ -1,0 +1,13 @@
+Uploading patches on a webpage is hard.  Command line uploading is the future!
+
+### Installation
+
+    pip install -e git://github.com/jbalogh/bzattach.git
+
+If you want to make the script suck less, check out the source and run
+
+    pip install reqs.txt
+
+If you're not installing this in a [virtualenv][1] you're crazy.
+
+[1]: http://pypi.python.org/pypi/virtualenv

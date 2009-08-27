@@ -1,0 +1,154 @@
+import httplib
+import getpass
+import os
+import urlparse
+
+import argparse
+from pyquery import PyQuery
+import twill.commands as twill
+
+import multipart
+
+
+ROOT = os.path.expanduser('~/.bugzilla-submitter')
+COOKIES = os.path.join(ROOT, 'bugzilla.cookies')
+
+BUGZILLA = 'https://bugzilla.mozilla.org/'
+ATTACH = BUGZILLA + 'attachment.cgi?bugid=%s&action=enter'
+ACTION = 'attachment.cgi'
+
+TYPES = {
+    'text': 'text/plain',
+    'html': 'text/html',
+    'xml': 'application/xml',
+    'gif': 'image/gif',
+    'jpg': 'image/jpeg',
+    'png': 'image/png',
+    'svg': 'image/svg+xml',
+    'binary': 'application/octet-stream',
+    'xul': 'application/vnd.mozilla.xul+xml',
+}
+
+
+def logged_in():
+    pq = PyQuery(twill.browser.get_html())
+    return bool(pq('#header a[href^=relogin]'))
+
+
+class Attacher(object):
+
+    def __init__(self, bug, file, description, patch=False, reviewer=None,
+                 comment=None, mimetype=None, username=None):
+        self.bug = bug
+        self.file = file
+        self.description = description
+        self.patch = patch
+        self.reviewer = reviewer
+        self.comment = comment
+        self.mimetype = mimetype
+        self.username = username
+
+        if not os.path.exists(ROOT):
+            os.mkdir(ROOT)
+
+        if os.path.exists(COOKIES):
+            twill.load_cookies(COOKIES)
+        else:
+            self.login()
+
+    def login(self, url=BUGZILLA):
+        print 'Logging in...'
+
+        if url:
+            twill.go(url)
+
+        username = self.username or raw_input('Username: ')
+        twill.fv('login', 'Bugzilla_login', username)
+        twill.fv('login', 'Bugzilla_password', getpass.getpass())
+        twill.fv('login', 'Bugzilla_remember', '1')
+        twill.submit()
+        twill.save_cookies(COOKIES)
+
+        if not logged_in():
+            print 'Login failed, trying again...'
+            self.username = None
+            self.login()
+
+    def attach(self):
+        twill.go(ATTACH % self.bug)
+        if not logged_in():
+            self.login(None)
+
+        fields = {'description': self.description}
+
+        if self.patch:
+            fields['ispatch'] = '1'
+
+        if self.comment:
+            fields['comment'] = self.comment
+
+        if self.reviewer:
+            fields['flag_type-4'] = '?'
+            fields['requestee_type-4'] = self.reviewer
+
+        if self.mimetype:
+            fields['contenttypeselection'] = self.mimetype
+            fields['contenttypemethod'] = 'list'
+
+        # Get hidden inputs.
+        pq = PyQuery(twill.browser.get_html())
+        hidden = pq('form[action="%s"] input[type=hidden]' % ACTION)
+        fields.update((i.name, i.value) for i in hidden)
+
+        files = {'data': (self.file, open(self.file).read())}
+
+        return self.post(fields, files)
+
+    def post(self, fields=None, files=None):
+        # Get cookies.
+        cookie = '; '.join('%s=%s' % (c.name, c.value)
+                           for c in twill.browser.cj)
+
+        content_type, body = multipart.encode_multipart_formdata(fields, files)
+
+        headers = {'Content-type': content_type,
+                   'Content-length': str(len(body)),
+                   'Cookie': cookie,
+        }
+
+        url = urlparse.urlparse(BUGZILLA + ACTION)
+        h = httplib.HTTPSConnection(url.hostname)
+
+        h.request('POST', url.path, body, headers)
+        response = h.getresponse()
+
+        print response.status, response.reason
+
+
+def main():
+
+    parser = argparse.ArgumentParser(description='Submit Bugzilla attachments')
+    parser.add_argument('bug', type=int, metavar='BUG', help='Bug number')
+    parser.add_argument('file', metavar='FILE', help='File to upload')
+
+    parser.add_argument('--description', help='Attachment description',
+                        required=True)
+    parser.add_argument('--patch', action='store_true',
+                        help='Is this a patch?')
+    parser.add_argument('--reviewer', help='Bugzilla name of someone to r?')
+    parser.add_argument('--comment', help='Comment for the attachment')
+
+    parser.add_argument('--mimetype', choices=TYPES, help="File's mimetype")
+
+    parser.add_argument('--username', help='Bugzilla username')
+
+    args = parser.parse_args()
+
+    if args.mimetype:
+        args.mimetype = TYPES[args.mimetype]
+
+    Attacher(**dict(args._get_kwargs())).attach()
+
+
+if __name__ == '__main__':
+    main()
