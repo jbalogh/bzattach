@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-requirements = open('reqs.txt').read.split()
+requirements = open('reqs.txt').read().split()
 
 setup(name='bzattach',
       version='0.3',
