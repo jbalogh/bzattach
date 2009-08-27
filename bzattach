@@ -4,10 +4,14 @@ import httplib
 import getpass
 import os
 import urlparse
+import warnings
 
 import argparse
 from pyquery import PyQuery
-import twill.commands as twill
+
+with warnings.catch_warnings():
+    warnings.simplefilter('ignore')
+    import twill.commands as twill
 
 import multipart
 

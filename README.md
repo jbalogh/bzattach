@@ -2,6 +2,9 @@ Uploading patches on a webpage is hard.  Command line uploading is the future!
 
 ### Installation
 
+The script requires Python 2.6.  If this is a terrible burden for you, let me
+know.
+
     STATIC_DEPS=true pip install -e git://github.com/jbalogh/bzattach.git#egg=bzattach
 
 If you want to make the script suck less, check out the source and run
