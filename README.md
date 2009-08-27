@@ -2,7 +2,7 @@ Uploading patches on a webpage is hard.  Command line uploading is the future!
 
 ### Installation
 
-    STATIC_DEPS=true pip install -e git://github.com/jbalogh/bzattach.git
+    STATIC_DEPS=true pip install -e git://github.com/jbalogh/bzattach.git#egg=bzattach
 
 If you want to make the script suck less, check out the source and run
 
